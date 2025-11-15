@@ -13,7 +13,7 @@ from datetime import datetime, date
 import warnings
 warnings.filterwarnings('ignore')
 
-def render_admission_dashboard():
+def render_admission_dashboard(uploaded_file=None):
     """Render the admission dashboard as a module"""
     
     # Enhanced Custom CSS with professional styling
@@ -172,21 +172,26 @@ def render_admission_dashboard():
         
         return df
 
-    # File Upload Section
-    st.sidebar.header("📁 Data Upload")
-    uploaded_file = st.sidebar.file_uploader(
-        "Admission Data Upload",
-        type=['csv'],
-        accept_multiple_files=False,
-        help="Upload your admission data CSV file"
-    )
-
+    # Check if file was uploaded from master dashboard
     if uploaded_file is not None:
-        st.sidebar.success(f"✅ File uploaded: {uploaded_file.name}")
         df = load_data(uploaded_file)
+        st.sidebar.success(f"✅ File uploaded: {uploaded_file.name}")
     else:
-        st.sidebar.info("Using default data file")
-        df = load_data()
+        # File Upload Section (only show if no file was passed from master)
+        st.sidebar.header("📁 Data Upload")
+        uploaded_file_local = st.sidebar.file_uploader(
+            "Admission Data Upload",
+            type=['csv'],
+            accept_multiple_files=False,
+            help="Upload your admission data CSV file"
+        )
+
+        if uploaded_file_local is not None:
+            st.sidebar.success(f"✅ File uploaded: {uploaded_file_local.name}")
+            df = load_data(uploaded_file_local)
+        else:
+            st.sidebar.info("Using default data file")
+            df = load_data()
 
     # Check if data is loaded
     if df is None:

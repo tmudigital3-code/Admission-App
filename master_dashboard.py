@@ -207,13 +207,16 @@ if not MODULES_AVAILABLE:
 
 # Enhanced sidebar with user-friendly labels
 with st.sidebar:
-    st.markdown('<div class="sidebar-section"><div class="sidebar-title">🧭 Navigation</div><div class="sidebar-description">Switch between different analytics modules using the tabs above</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-section"><div class="sidebar-title">🏫 Admission Data Upload</div><div class="sidebar-description">Upload your admission CSV files here for immediate analysis</div></div>', unsafe_allow_html=True)
+    admission_uploaded_file = st.sidebar.file_uploader("Choose Admission CSV File", type=['csv'], key="admission_upload", help="Upload CSV with columns: Date of Admission, enquiry date, Date of Birth, Gender, Category, Religion, Programme Name, Program Level, Student Status, erp20may_State, Source, Family Annual Income, Prequalification Percentage")
     
-    st.markdown('<div class="sidebar-section"><div class="sidebar-title">📁 Data Management</div><div class="sidebar-description">Upload your CSV files for each module using the file uploaders in their respective tabs</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-section"><div class="sidebar-title">🎓 Applicant Data Upload</div><div class="sidebar-description">Upload your applicant CSV files here for detailed profiling</div></div>', unsafe_allow_html=True)
+    applicant_uploaded_files = st.sidebar.file_uploader("Choose Applicant CSV Files", type=['csv'], key="applicant_upload", accept_multiple_files=True, help="Upload CSV files with columns: Allotment Status, Level, Discipline, College")
     
-    st.markdown('<div class="sidebar-section"><div class="sidebar-title">⚙️ Settings</div><div class="sidebar-description">Adjust filters and settings within each dashboard module</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-section"><div class="sidebar-title">📞 Enquiry Data Upload</div><div class="sidebar-description">Upload your enquiry CSV files here for conversion analysis</div></div>', unsafe_allow_html=True)
+    enquiry_uploaded_file = st.sidebar.file_uploader("Choose Enquiry CSV File", type=['csv'], key="enquiry_upload", help="Upload CSV with enquiry data including Enquiry No., Enquiry Date, and other relevant fields")
     
-    st.markdown('<div class="sidebar-section"><div class="sidebar-title">💡 Help & Support</div><div class="sidebar-description">Each module provides specific instructions for data requirements and usage</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-section"><div class="sidebar-title">💡 Quick Help</div><div class="sidebar-description">Switch between modules using the tabs above. Each tab will automatically use the data uploaded here.</div></div>', unsafe_allow_html=True)
 
 # Create tabs for each dashboard with improved styling
 admission_tab, applicant_tab, enquiry_tab = st.tabs([
@@ -224,11 +227,12 @@ admission_tab, applicant_tab, enquiry_tab = st.tabs([
 
 # Admission Dashboard Tab
 with admission_tab:
-    st.markdown("""<div class="dashboard-intro"><h2>🏫 Admission Dashboard</h2><p>Analyze comprehensive admission data including KPIs, trends, demographics, and advanced analytics. Upload your admission CSV files to get started with detailed insights into your admission processes.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="dashboard-intro"><h2>🏫 Admission Dashboard</h2><p>Analyze comprehensive admission data including KPIs, trends, demographics, and advanced analytics. The dashboard will automatically use the CSV file you uploaded in the sidebar.</p></div>""", unsafe_allow_html=True)
     
-    # Render the admission dashboard
+    # Render the admission dashboard with uploaded file
     try:
-        render_admission_dashboard()
+        # Pass the uploaded file to the dashboard function
+        render_admission_dashboard(admission_uploaded_file)
     except Exception as e:
         st.error(f"Error rendering Admission dashboard: {str(e)}")
 
@@ -238,13 +242,14 @@ with applicant_tab:
     <div class="dashboard-intro">
         <h2>🎓 Applicant Dashboard</h2>
         <p>Analyze applicant profiles, performance, and demographic insights. 
-        Upload applicant data CSV files to explore patterns in applicant behavior and success factors.</p>
+        The dashboard will automatically use the CSV files you uploaded in the sidebar.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Render the applicant dashboard
+    # Render the applicant dashboard with uploaded files
     try:
-        render_applicant_dashboard()
+        # Pass the uploaded files to the dashboard function
+        render_applicant_dashboard(applicant_uploaded_files)
     except Exception as e:
         st.error(f"Error rendering Applicant dashboard: {str(e)}")
 
@@ -254,13 +259,14 @@ with enquiry_tab:
     <div class="dashboard-intro">
         <h2>📞 Enquiry Dashboard</h2>
         <p>Track enquiry data, conversion rates, and response times. 
-        Upload enquiry CSV files to understand how prospective students interact with your institution.</p>
+        The dashboard will automatically use the CSV file you uploaded in the sidebar.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Render the enquiry dashboard
+    # Render the enquiry dashboard with uploaded file
     try:
-        render_enquiry_dashboard()
+        # Pass the uploaded file to the dashboard function
+        render_enquiry_dashboard(enquiry_uploaded_file)
     except Exception as e:
         st.error(f"Error rendering Enquiry dashboard: {str(e)}")
 

@@ -5,7 +5,7 @@ import glob
 import plotly.express as px
 import plotly.graph_objects as go
 
-def render_applicant_dashboard():
+def render_applicant_dashboard(uploaded_files=None):
     """Render the applicant dashboard content"""
     
     # Enhanced Professional header with custom styling
@@ -151,9 +151,23 @@ def render_applicant_dashboard():
             else:
                 return pd.DataFrame()
 
-    # Load the data
-    df = load_data(uploaded_files)
+    # Check if files were uploaded from master dashboard
+    if uploaded_files is not None and len(uploaded_files) > 0:
+        df = load_data(uploaded_files)
+        for uploaded_file in uploaded_files:
+            st.sidebar.success(f"✅ File uploaded: {uploaded_file.name}")
+    else:
+        # Professional sidebar styling
+        st.sidebar.markdown('<div class="sidebar-header">📁 Data Upload</div>', unsafe_allow_html=True)
+        uploaded_files_local = st.sidebar.file_uploader("Applicant Data Upload", type="csv", accept_multiple_files=True, key="applicant_uploader",
+            help="Upload CSV files containing applicant data (Must include columns: Allotment Status, Level, Discipline, College)")
 
+        st.sidebar.markdown("<br>", unsafe_allow_html=True)
+        st.sidebar.markdown('<div class="sidebar-header">🔍 Filters</div>', unsafe_allow_html=True)
+        
+        # Load the data
+        df = load_data(uploaded_files_local)
+    
     if df.empty:
         st.info("No data found. Please upload CSV files using the uploader in the sidebar, or check the 'applicant data' directory for existing files.")
         st.markdown("""

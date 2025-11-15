@@ -6,7 +6,7 @@ from datetime import datetime, date
 import warnings
 warnings.filterwarnings('ignore')
 
-def render_enquiry_dashboard():
+def render_enquiry_dashboard(uploaded_file=None):
     """Render the enquiry dashboard content"""
     
     # Enhanced Custom CSS with professional styling
@@ -202,410 +202,415 @@ def render_enquiry_dashboard():
             st.error(f"Error loading data: {str(e)}")
             return pd.DataFrame()  # Return empty DataFrame on error
 
-    # File upload section
-    st.sidebar.markdown('<div class="sidebar-header">📁 Data Upload</div>', unsafe_allow_html=True)
-    uploaded_file = st.sidebar.file_uploader("Enquiry Data Upload", type="csv", accept_multiple_files=False, key="enquiry_uploader",
-        help="Upload CSV file containing enquiry data (Must include columns: Enquiry No., Enquiry Date, College, Specialization, Enquiry Type, Allotment Status, Gender)")
-
-    # Check if file is uploaded
+    # Check if file was uploaded from master dashboard
     if uploaded_file is not None:
-        # Load data from uploaded file
         df = load_data_from_file(uploaded_file)
-        
-        # Check if we have valid data
-        if df.empty:
-            st.error("No valid data found after processing. Please check your CSV file format.")
-            st.markdown("""
-            <div class="info-box">
-                <h4>💡 Tips for Using This Dashboard:</h4>
-                <ul>
-                    <li>Upload a CSV file containing enquiry data</li>
-                    <li>Ensure your data includes columns like: Enquiry No., Enquiry Date, College, Specialization, Enquiry Type, Allotment Status, Gender</li>
-                    <li>Use the filters in the sidebar to analyze specific segments</li>
-                    <li>View visualizations to understand enquiry patterns and trends</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            return
+        st.sidebar.success(f"✅ File uploaded: {uploaded_file.name}")
+    else:
+        # File upload section
+        st.sidebar.markdown('<div class="sidebar-header">📁 Data Upload</div>', unsafe_allow_html=True)
+        uploaded_file_local = st.sidebar.file_uploader("Enquiry Data Upload", type="csv", accept_multiple_files=False, key="enquiry_uploader",
+            help="Upload CSV file containing enquiry data (Must include columns: Enquiry No., Enquiry Date, College, Specialization, Enquiry Type, Allotment Status, Gender)")
 
-        # Initialize filtered_df with the full dataset
-        filtered_df = df.copy()
-
-        # Sidebar filters
         st.sidebar.markdown('<div class="sidebar-header">🔍 Filters</div>', unsafe_allow_html=True)
-
-        # College filter
-        colleges = ['All Colleges'] + list(df['College'].unique())
-        selected_college = st.sidebar.selectbox("Select College", colleges, key="enquiry_college")
-
-        # Specialization filter
-        specializations = ['All Specializations'] + list(df['Specialization'].unique())
-        selected_specialization = st.sidebar.selectbox("Select Specialization", specializations, key="enquiry_specialization")
-
-        # Enquiry Type filter
-        enquiry_types = ['All Types'] + list(df['Enquiry Type'].unique())
-        selected_enquiry_type = st.sidebar.selectbox("Select Enquiry Type", enquiry_types, key="enquiry_type")
-
-        # Date range filter - with proper error handling
-        try:
-            # Fix date attribute access issues by using pandas functions
-            min_date_raw = df['Enquiry Date'].min()
-            max_date_raw = df['Enquiry Date'].max()
-            
-            # Safely extract date components using pandas methods
-            try:
-                min_date_series = pd.Series([min_date_raw])
-                max_date_series = pd.Series([max_date_raw])
-                
-                # Convert to datetime and extract date
-                min_date_dt = pd.to_datetime(min_date_series, errors='coerce')
-                max_date_dt = pd.to_datetime(max_date_series, errors='coerce')
-                
-                if not min_date_dt.isna().any() and not max_date_dt.isna().any():
-                    min_date = min_date_dt.dt.date.iloc[0]
-                    max_date = max_date_dt.dt.date.iloc[0]
-                    
-                    # Ensure we have valid dates
-                    start_date = st.sidebar.date_input("Start Date", min_date, min_value=min_date, max_value=max_date, key="enquiry_start_date")
-                    end_date = st.sidebar.date_input("End Date", max_date, min_value=min_date, max_value=max_date, key="enquiry_end_date")
-                else:
-                    start_date = date.today()
-                    end_date = date.today()
-            except Exception:
-                start_date = date.today()
-                end_date = date.today()
-        except Exception as e:
-            st.sidebar.warning("Error processing dates. Using default date range.")
-            start_date = date.today()
-            end_date = date.today()
-
-        # Apply filters to the data
-        if selected_college != 'All Colleges':
-            filtered_df = filtered_df[filtered_df['College'] == selected_college]
-
-        if selected_specialization != 'All Specializations':
-            filtered_df = filtered_df[filtered_df['Specialization'] == selected_specialization]
-
-        if selected_enquiry_type != 'All Types':
-            filtered_df = filtered_df[filtered_df['Enquiry Type'] == selected_enquiry_type]
-
-        # Convert dates for filtering with error handling
-        try:
-            # Fix date combination issues by checking the type of start_date and end_date
-            if isinstance(start_date, tuple):
-                start_date = start_date[0] if start_date else date.today()
-            if isinstance(end_date, tuple):
-                end_date = end_date[0] if end_date else date.today()
-                
-            # Ensure we have valid dates
-            if start_date is None:
-                start_date = date.today()
-            if end_date is None:
-                end_date = date.today()
-                
-            start_datetime = datetime.combine(start_date, datetime.min.time())
-            end_datetime = datetime.combine(end_date, datetime.max.time())
-            filtered_df = filtered_df[(filtered_df['Enquiry Date'] >= start_datetime) & 
-                                      (filtered_df['Enquiry Date'] <= end_datetime)]
-        except Exception as e:
-            st.warning("Error filtering by date. Showing all data.")
-            pass
-            
-        # Calculate metrics
-        total_enquiries = len(filtered_df)
-        allotted_enquiries = len(filtered_df[filtered_df['Allotment Status'] == 'Allotted'])
-        admission_enquiries = len(filtered_df[filtered_df['Allotment Status'] == 'Admission'])
         
-        # Fix nunique issue by using pandas functions explicitly
-        try:
-            unique_specializations_series = pd.Series(filtered_df['Specialization']).nunique()
-            unique_specializations = int(unique_specializations_series) if not pd.isna(unique_specializations_series) else 0
-        except Exception:
-            unique_specializations = 0
-
-        # Additional metrics
-        walkin_enquiries = len(filtered_df[filtered_df['Enquiry Type'] == 'Walk-in'])
-        online_enquiries = len(filtered_df[filtered_df['Enquiry Type'] == 'Online'])
-        male_enquiries = len(filtered_df[filtered_df['Gender'] == 'Male'])
-        female_enquiries = len(filtered_df[filtered_df['Gender'] == 'Female'])
-
-        # Display key metrics
+        # Load the data
+        df = load_data_from_file(uploaded_file_local)
+    
+    # Check if we have valid data
+    if df.empty:
+        st.error("No valid data found after processing. Please check your CSV file format.")
         st.markdown("""
-        <div class="metrics-container">
-            <div class="metrics-title">📊 Key Metrics</div>
+        <div class="info-box">
+            <h4>💡 Tips for Using This Dashboard:</h4>
+            <ul>
+                <li>Upload a CSV file containing enquiry data</li>
+                <li>Ensure your data includes columns like: Enquiry No., Enquiry Date, College, Specialization, Enquiry Type, Allotment Status, Gender</li>
+                <li>Use the filters in the sidebar to analyze specific segments</li>
+                <li>View visualizations to understand enquiry patterns and trends</li>
+            </ul>
         </div>
         """, unsafe_allow_html=True)
+        return
+
+    # Initialize filtered_df with the full dataset
+    filtered_df = df.copy()
+
+    # Sidebar filters
+    st.sidebar.markdown('<div class="sidebar-header">🔍 Filters</div>', unsafe_allow_html=True)
+
+    # College filter
+    colleges = ['All Colleges'] + list(df['College'].unique())
+    selected_college = st.sidebar.selectbox("Select College", colleges, key="enquiry_college")
+
+    # Specialization filter
+    specializations = ['All Specializations'] + list(df['Specialization'].unique())
+    selected_specialization = st.sidebar.selectbox("Select Specialization", specializations, key="enquiry_specialization")
+
+    # Enquiry Type filter
+    enquiry_types = ['All Types'] + list(df['Enquiry Type'].unique())
+    selected_enquiry_type = st.sidebar.selectbox("Select Enquiry Type", enquiry_types, key="enquiry_type")
+
+    # Date range filter - with proper error handling
+    try:
+        # Fix date attribute access issues by using pandas functions
+        min_date_raw = df['Enquiry Date'].min()
+        max_date_raw = df['Enquiry Date'].max()
         
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Enquiries", total_enquiries)
-        col2.metric("Allotted Enquiries", allotted_enquiries)
-        col3.metric("Admission Enquiries", admission_enquiries)
-        col4.metric("Unique Specializations", unique_specializations)
+        # Safely extract date components using pandas methods
+        try:
+            min_date_series = pd.Series([min_date_raw])
+            max_date_series = pd.Series([max_date_raw])
+            
+            # Convert to datetime and extract date
+            min_date_dt = pd.to_datetime(min_date_series, errors='coerce')
+            max_date_dt = pd.to_datetime(max_date_series, errors='coerce')
+            
+            if not min_date_dt.isna().any() and not max_date_dt.isna().any():
+                min_date = min_date_dt.dt.date.iloc[0]
+                max_date = max_date_dt.dt.date.iloc[0]
+                
+                # Ensure we have valid dates
+                start_date = st.sidebar.date_input("Start Date", min_date, min_value=min_date, max_value=max_date, key="enquiry_start_date")
+                end_date = st.sidebar.date_input("End Date", max_date, min_value=min_date, max_value=max_date, key="enquiry_end_date")
+            else:
+                start_date = date.today()
+                end_date = date.today()
+        except Exception:
+            start_date = date.today()
+            end_date = date.today()
+    except Exception as e:
+        st.sidebar.warning("Error processing dates. Using default date range.")
+        start_date = date.today()
+        end_date = date.today()
 
-        # Additional metrics row
-        col5, col6, col7, col8 = st.columns(4)
-        col5.metric("Walk-in Enquiries", walkin_enquiries)
-        col6.metric("Online Enquiries", online_enquiries)
-        col7.metric("Male Enquiries", male_enquiries)
-        col8.metric("Female Enquiries", female_enquiries)
+    # Apply filters to the data
+    if selected_college != 'All Colleges':
+        filtered_df = filtered_df[filtered_df['College'] == selected_college]
 
-        # Create charts
-        st.markdown('<div class="section-header">📈 Data Visualizations</div>', unsafe_allow_html=True)
+    if selected_specialization != 'All Specializations':
+        filtered_df = filtered_df[filtered_df['Specialization'] == selected_specialization]
 
-        # Row 1
-        col1, col2 = st.columns(2)
+    if selected_enquiry_type != 'All Types':
+        filtered_df = filtered_df[filtered_df['Enquiry Type'] == selected_enquiry_type]
 
-        # Enquiries by date (line chart)
-        with col1:
-            # Fix groupby and dt issues by using pandas functions explicitly
-            try:
-                enquiry_date_series = pd.Series(filtered_df['Enquiry Date'])
-                date_groups = enquiry_date_series.groupby(enquiry_date_series.dt.date)
-                daily_counts_series = date_groups.size()
-                # Fix reset_index issue
-                daily_counts = pd.DataFrame({
-                    'Enquiry Date': daily_counts_series.index,
-                    'Count': daily_counts_series.values
-                })
-                if not daily_counts.empty:
-                    fig1 = px.line(daily_counts, x='Enquiry Date', y='Count', 
-                                   title='Enquiries Over Time')
-                    fig1.update_layout(xaxis_title='Date', yaxis_title='Number of Enquiries')
-                    st.plotly_chart(fig1, use_container_width=True)
-                else:
-                    st.info("No data available for this selection")
-            except Exception as e:
+    # Convert dates for filtering with error handling
+    try:
+        # Fix date combination issues by checking the type of start_date and end_date
+        if isinstance(start_date, tuple):
+            start_date = start_date[0] if start_date else date.today()
+        if isinstance(end_date, tuple):
+            end_date = end_date[0] if end_date else date.today()
+            
+        # Ensure we have valid dates
+        if start_date is None:
+            start_date = date.today()
+        if end_date is None:
+            end_date = date.today()
+            
+        start_datetime = datetime.combine(start_date, datetime.min.time())
+        end_datetime = datetime.combine(end_date, datetime.max.time())
+        filtered_df = filtered_df[(filtered_df['Enquiry Date'] >= start_datetime) & 
+                                  (filtered_df['Enquiry Date'] <= end_datetime)]
+    except Exception as e:
+        st.warning("Error filtering by date. Showing all data.")
+        pass
+            
+    # Calculate metrics
+    total_enquiries = len(filtered_df)
+    allotted_enquiries = len(filtered_df[filtered_df['Allotment Status'] == 'Allotted'])
+    admission_enquiries = len(filtered_df[filtered_df['Allotment Status'] == 'Admission'])
+        
+    # Fix nunique issue by using pandas functions explicitly
+    try:
+        unique_specializations_series = pd.Series(filtered_df['Specialization']).nunique()
+        unique_specializations = int(unique_specializations_series) if not pd.isna(unique_specializations_series) else 0
+    except Exception:
+        unique_specializations = 0
+
+    # Additional metrics
+    walkin_enquiries = len(filtered_df[filtered_df['Enquiry Type'] == 'Walk-in'])
+    online_enquiries = len(filtered_df[filtered_df['Enquiry Type'] == 'Online'])
+    male_enquiries = len(filtered_df[filtered_df['Gender'] == 'Male'])
+    female_enquiries = len(filtered_df[filtered_df['Gender'] == 'Female'])
+
+    # Display key metrics
+    st.markdown("""
+    <div class="metrics-container">
+        <div class="metrics-title">📊 Key Metrics</div>
+    </div>
+    """, unsafe_allow_html=True)
+        
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Enquiries", total_enquiries)
+    col2.metric("Allotted Enquiries", allotted_enquiries)
+    col3.metric("Admission Enquiries", admission_enquiries)
+    col4.metric("Unique Specializations", unique_specializations)
+
+    # Additional metrics row
+    col5, col6, col7, col8 = st.columns(4)
+    col5.metric("Walk-in Enquiries", walkin_enquiries)
+    col6.metric("Online Enquiries", online_enquiries)
+    col7.metric("Male Enquiries", male_enquiries)
+    col8.metric("Female Enquiries", female_enquiries)
+
+    # Create charts
+    st.markdown('<div class="section-header">📈 Data Visualizations</div>', unsafe_allow_html=True)
+
+    # Row 1
+    col1, col2 = st.columns(2)
+
+    # Enquiries by date (line chart)
+    with col1:
+        # Fix groupby and dt issues by using pandas functions explicitly
+        try:
+            enquiry_date_series = pd.Series(filtered_df['Enquiry Date'])
+            date_groups = enquiry_date_series.groupby(enquiry_date_series.dt.date)
+            daily_counts_series = date_groups.size()
+            # Fix reset_index issue
+            daily_counts = pd.DataFrame({
+                'Enquiry Date': daily_counts_series.index,
+                'Count': daily_counts_series.values
+            })
+            if not daily_counts.empty:
+                fig1 = px.line(daily_counts, x='Enquiry Date', y='Count', 
+                               title='Enquiries Over Time')
+                fig1.update_layout(xaxis_title='Date', yaxis_title='Number of Enquiries')
+                st.plotly_chart(fig1, use_container_width=True)
+            else:
                 st.info("No data available for this selection")
+        except Exception as e:
+            st.info("No data available for this selection")
 
-        # Enquiries by college (bar chart)
-        with col2:
-            # Fix value_counts issues by using pandas functions explicitly
-            try:
-                college_value_counts = pd.Series(filtered_df['College']).value_counts()
-                college_counts = college_value_counts.reset_index()
-                college_counts.columns = ['College', 'Count']
-                if not college_counts.empty:
-                    fig2 = px.bar(college_counts, x='College', y='Count', 
-                                  title='Enquiries by College')
-                    fig2.update_layout(xaxis_title='College', yaxis_title='Number of Enquiries')
-                    st.plotly_chart(fig2, use_container_width=True)
-                else:
-                    st.info("No data available for this selection")
-            except Exception as e:
+    # Enquiries by college (bar chart)
+    with col2:
+        # Fix value_counts issues by using pandas functions explicitly
+        try:
+            college_value_counts = pd.Series(filtered_df['College']).value_counts()
+            college_counts = college_value_counts.reset_index()
+            college_counts.columns = ['College', 'Count']
+            if not college_counts.empty:
+                fig2 = px.bar(college_counts, x='College', y='Count', 
+                              title='Enquiries by College')
+                fig2.update_layout(xaxis_title='College', yaxis_title='Number of Enquiries')
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
                 st.info("No data available for this selection")
+        except Exception as e:
+            st.info("No data available for this selection")
 
-        # Row 2
-        col1, col2 = st.columns(2)
+    # Row 2
+    col1, col2 = st.columns(2)
 
-        # Enquiries by specialization (bar chart)
-        with col1:
-            # Fix value_counts issues by using pandas functions explicitly
-            try:
-                specialization_counts = pd.Series(filtered_df['Specialization']).value_counts().head(10)
-                if not specialization_counts.empty:
-                    fig3 = px.bar(x=specialization_counts.values, y=specialization_counts.index,
-                                  orientation='h', title='Top 10 Specializations by Enquiries')
-                    fig3.update_layout(xaxis_title='Number of Enquiries', yaxis_title='Specialization')
-                    st.plotly_chart(fig3, use_container_width=True)
-                else:
-                    st.info("No data available for this selection")
-            except Exception as e:
+    # Enquiries by specialization (bar chart)
+    with col1:
+        # Fix value_counts issues by using pandas functions explicitly
+        try:
+            specialization_counts = pd.Series(filtered_df['Specialization']).value_counts().head(10)
+            if not specialization_counts.empty:
+                fig3 = px.bar(x=specialization_counts.values, y=specialization_counts.index,
+                              orientation='h', title='Top 10 Specializations by Enquiries')
+                fig3.update_layout(xaxis_title='Number of Enquiries', yaxis_title='Specialization')
+                st.plotly_chart(fig3, use_container_width=True)
+            else:
                 st.info("No data available for this selection")
+        except Exception as e:
+            st.info("No data available for this selection")
 
-        # Enquiries by type (pie chart)
-        with col2:
-            # Fix value_counts issues by using pandas functions explicitly
+    # Enquiries by type (pie chart)
+    with col2:
+        # Fix value_counts issues by using pandas functions explicitly
+        try:
+            enquiry_type_counts = pd.Series(filtered_df['Enquiry Type']).value_counts()
+            if not enquiry_type_counts.empty:
+                fig4 = px.pie(values=enquiry_type_counts.values, names=enquiry_type_counts.index,
+                              title='Enquiries by Type')
+                fig4.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color="#2c3e50")
+                )
+                st.plotly_chart(fig4, use_container_width=True)
+            else:
+                st.info("No data available for this selection")
+        except Exception as e:
+            st.info("No data available for this selection")
+
+    # Row 3
+    col1, col2 = st.columns(2)
+
+    # Enquiries by status (bar chart)
+    with col1:
+        # Fix value_counts issues by using pandas functions explicitly
+        try:
+            status_counts = pd.Series(filtered_df['Allotment Status']).value_counts()
+            if not status_counts.empty:
+                fig5 = px.bar(x=status_counts.index, y=status_counts.values,
+                              title='Enquiries by Status')
+                fig5.update_layout(xaxis_title='Status', yaxis_title='Number of Enquiries')
+                st.plotly_chart(fig5, use_container_width=True)
+            else:
+                st.info("No data available for this selection")
+        except Exception as e:
+            st.info("No data available for this selection")
+
+    # Enquiries by gender (pie chart)
+    with col2:
+        # Fix value_counts issues by using pandas functions explicitly
+        try:
+            gender_counts = pd.Series(filtered_df['Gender']).value_counts()
+            if not gender_counts.empty:
+                fig6 = px.pie(values=gender_counts.values, names=gender_counts.index,
+                              title='Enquiries by Gender')
+                fig6.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color="#2c3e50")
+                )
+                st.plotly_chart(fig6, use_container_width=True)
+            else:
+                st.info("No data available for this selection")
+        except Exception as e:
+            st.info("No data available for this selection")
+        
+    # Row 4 - Additional Charts
+    st.markdown('<div class="section-header">📈 Advanced Analytics</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+
+    # Monthly trend analysis
+    st.write("### Monthly Trend Analysis")
+    try:
+        # Fix dt and groupby issues by using pandas functions explicitly
+        enquiry_date_series = pd.Series(filtered_df['Enquiry Date'])
+        monthly_data = pd.DataFrame({
+            'Enquiry Date': enquiry_date_series
+        })
+        # Extract year and month using pandas functions
+        monthly_data['Year'] = pd.to_datetime(monthly_data['Enquiry Date']).dt.year
+        monthly_data['Month'] = pd.to_datetime(monthly_data['Enquiry Date']).dt.month
+            
+        # Group by year and month
+        monthly_groups = monthly_data.groupby(['Year', 'Month'])
+        monthly_counts_series = monthly_groups.size()
+            
+        # Fix reset_index issue
+        monthly_counts = pd.DataFrame({
+            'Year': monthly_counts_series.index.get_level_values(0),
+            'Month': monthly_counts_series.index.get_level_values(1),
+            'Count': monthly_counts_series.values
+        })
+            
+        if not monthly_counts.empty:
+            # Create a date column for plotting
+            monthly_counts['Date'] = pd.to_datetime(monthly_counts[['Year', 'Month']].assign(day=1))
+            fig7 = px.line(monthly_counts, x='Date', y='Count', title='Monthly Enquiry Trends')
+            fig7.update_layout(xaxis_title='Month', yaxis_title='Number of Enquiries')
+            st.plotly_chart(fig7, use_container_width=True)
+        else:
+            st.info("No data available for monthly trend analysis")
+    except Exception as e:
+        st.info("No data available for monthly trend analysis")
+
+    # Hourly Distribution Analysis
+    with col2:
+        st.write("### Hourly Distribution")
+        try:
+            # Fix dt issues by using pandas functions explicitly
+            enquiry_date_series = pd.Series(filtered_df['Enquiry Date'])
+            hour_series = pd.to_datetime(enquiry_date_series).dt.hour
+            hourly_counts = pd.Series(hour_series).value_counts().sort_index()
+                
+            if not hourly_counts.empty:
+                fig8 = px.bar(x=hourly_counts.index, y=hourly_counts.values,
+                              title='Enquiries by Hour of Day')
+                fig8.update_layout(xaxis_title='Hour of Day', yaxis_title='Number of Enquiries')
+                st.plotly_chart(fig8, use_container_width=True)
+            else:
+                st.info("No data available for hourly distribution")
+        except Exception as e:
+            st.info("No data available for hourly distribution")
+
+    # College-Specialization Heatmap
+    st.write("### College-Specialization Analysis")
+    try:
+        # Fix groupby issues by using pandas functions explicitly
+        college_series = pd.Series(filtered_df['College'])
+        specialization_series = pd.Series(filtered_df['Specialization'])
+            
+        # Create a DataFrame for groupby operation
+        college_spec_data = pd.DataFrame({
+            'College': college_series,
+            'Specialization': specialization_series
+        })
+            
+        college_spec_groups = college_spec_data.groupby(['College', 'Specialization'])
+        college_spec_counts_series = college_spec_groups.size()
+            
+        # Fix reset_index issue
+        college_spec_counts = pd.DataFrame({
+            'College': college_spec_counts_series.index.get_level_values(0),
+            'Specialization': college_spec_counts_series.index.get_level_values(1),
+            'Count': college_spec_counts_series.values
+        })
+            
+        if not college_spec_counts.empty:
+            # Create pivot table for heatmap
+            pivot_table = college_spec_counts.pivot_table(
+                index='College', 
+                columns='Specialization', 
+                values='Count', 
+                fill_value=0
+            )
+                
+            fig9 = px.imshow(
+                pivot_table,
+                title='College-Specialization Distribution Heatmap',
+                color_continuous_scale=px.colors.sequential.Viridis
+            )
+            fig9.update_layout(
+                xaxis_title='Specialization',
+                yaxis_title='College'
+            )
+            st.plotly_chart(fig9, use_container_width=True)
+        else:
+            st.info("No data available for college-specialization analysis")
+    except Exception as e:
+        st.info("No data available for college-specialization analysis")
+
+    # College Performance Analysis
+    st.write("### College Performance")
+    try:
+        # Fix value_counts issues by using pandas functions explicitly
+        college_counts = pd.Series(filtered_df['College']).value_counts()
+            
+        if not college_counts.empty:
+            fig10 = px.bar(x=college_counts.index, y=college_counts.values,
+                           title='Enquiries by College')
+            fig10.update_layout(xaxis_title='College', yaxis_title='Number of Enquiries')
+            st.plotly_chart(fig10, use_container_width=True)
+        else:
+            st.info("No data available for college performance analysis")
+    except Exception as e:
+        st.info("No data available for college performance analysis")
+        
+    # Enhanced Analysis Section
+    st.subheader("Enhanced Analysis")
+        
+    # Additional Charts and Analysis Parameters
+    enh_col1, enh_col2, enh_col3 = st.columns(3)
+        
+    with enh_col1:
+        # Enquiry Type Analysis
+        if 'Enquiry Type' in filtered_df.columns:
             try:
                 enquiry_type_counts = pd.Series(filtered_df['Enquiry Type']).value_counts()
                 if not enquiry_type_counts.empty:
-                    fig4 = px.pie(values=enquiry_type_counts.values, names=enquiry_type_counts.index,
-                                  title='Enquiries by Type')
-                    fig4.update_layout(
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color="#2c3e50")
-                    )
-                    st.plotly_chart(fig4, use_container_width=True)
-                else:
-                    st.info("No data available for this selection")
-            except Exception as e:
-                st.info("No data available for this selection")
-
-        # Row 3
-        col1, col2 = st.columns(2)
-
-        # Enquiries by status (bar chart)
-        with col1:
-            # Fix value_counts issues by using pandas functions explicitly
-            try:
-                status_counts = pd.Series(filtered_df['Allotment Status']).value_counts()
-                if not status_counts.empty:
-                    fig5 = px.bar(x=status_counts.index, y=status_counts.values,
-                                  title='Enquiries by Status')
-                    fig5.update_layout(xaxis_title='Status', yaxis_title='Number of Enquiries')
-                    st.plotly_chart(fig5, use_container_width=True)
-                else:
-                    st.info("No data available for this selection")
-            except Exception as e:
-                st.info("No data available for this selection")
-
-        # Enquiries by gender (pie chart)
-        with col2:
-            # Fix value_counts issues by using pandas functions explicitly
-            try:
-                gender_counts = pd.Series(filtered_df['Gender']).value_counts()
-                if not gender_counts.empty:
-                    fig6 = px.pie(values=gender_counts.values, names=gender_counts.index,
-                                  title='Enquiries by Gender')
-                    fig6.update_layout(
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color="#2c3e50")
-                    )
-                    st.plotly_chart(fig6, use_container_width=True)
-                else:
-                    st.info("No data available for this selection")
-            except Exception as e:
-                st.info("No data available for this selection")
-        
-        # Row 4 - Additional Charts
-        st.markdown('<div class="section-header">📈 Advanced Analytics</div>', unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-
-        # Monthly trend analysis
-        st.write("### Monthly Trend Analysis")
-        try:
-            # Fix dt and groupby issues by using pandas functions explicitly
-            enquiry_date_series = pd.Series(filtered_df['Enquiry Date'])
-            monthly_data = pd.DataFrame({
-                'Enquiry Date': enquiry_date_series
-            })
-            # Extract year and month using pandas functions
-            monthly_data['Year'] = pd.to_datetime(monthly_data['Enquiry Date']).dt.year
-            monthly_data['Month'] = pd.to_datetime(monthly_data['Enquiry Date']).dt.month
-            
-            # Group by year and month
-            monthly_groups = monthly_data.groupby(['Year', 'Month'])
-            monthly_counts_series = monthly_groups.size()
-            
-            # Fix reset_index issue
-            monthly_counts = pd.DataFrame({
-                'Year': monthly_counts_series.index.get_level_values(0),
-                'Month': monthly_counts_series.index.get_level_values(1),
-                'Count': monthly_counts_series.values
-            })
-            
-            if not monthly_counts.empty:
-                # Create a date column for plotting
-                monthly_counts['Date'] = pd.to_datetime(monthly_counts[['Year', 'Month']].assign(day=1))
-                fig7 = px.line(monthly_counts, x='Date', y='Count', title='Monthly Enquiry Trends')
-                fig7.update_layout(xaxis_title='Month', yaxis_title='Number of Enquiries')
-                st.plotly_chart(fig7, use_container_width=True)
-            else:
-                st.info("No data available for monthly trend analysis")
-        except Exception as e:
-            st.info("No data available for monthly trend analysis")
-
-        # Hourly Distribution Analysis
-        with col2:
-            st.write("### Hourly Distribution")
-            try:
-                # Fix dt issues by using pandas functions explicitly
-                enquiry_date_series = pd.Series(filtered_df['Enquiry Date'])
-                hour_series = pd.to_datetime(enquiry_date_series).dt.hour
-                hourly_counts = pd.Series(hour_series).value_counts().sort_index()
-                
-                if not hourly_counts.empty:
-                    fig8 = px.bar(x=hourly_counts.index, y=hourly_counts.values,
-                                  title='Enquiries by Hour of Day')
-                    fig8.update_layout(xaxis_title='Hour of Day', yaxis_title='Number of Enquiries')
-                    st.plotly_chart(fig8, use_container_width=True)
-                else:
-                    st.info("No data available for hourly distribution")
-            except Exception as e:
-                st.info("No data available for hourly distribution")
-
-        # College-Specialization Heatmap
-        st.write("### College-Specialization Analysis")
-        try:
-            # Fix groupby issues by using pandas functions explicitly
-            college_series = pd.Series(filtered_df['College'])
-            specialization_series = pd.Series(filtered_df['Specialization'])
-            
-            # Create a DataFrame for groupby operation
-            college_spec_data = pd.DataFrame({
-                'College': college_series,
-                'Specialization': specialization_series
-            })
-            
-            college_spec_groups = college_spec_data.groupby(['College', 'Specialization'])
-            college_spec_counts_series = college_spec_groups.size()
-            
-            # Fix reset_index issue
-            college_spec_counts = pd.DataFrame({
-                'College': college_spec_counts_series.index.get_level_values(0),
-                'Specialization': college_spec_counts_series.index.get_level_values(1),
-                'Count': college_spec_counts_series.values
-            })
-            
-            if not college_spec_counts.empty:
-                # Create pivot table for heatmap
-                pivot_table = college_spec_counts.pivot_table(
-                    index='College', 
-                    columns='Specialization', 
-                    values='Count', 
-                    fill_value=0
-                )
-                
-                fig9 = px.imshow(
-                    pivot_table,
-                    title='College-Specialization Distribution Heatmap',
-                    color_continuous_scale=px.colors.sequential.Viridis
-                )
-                fig9.update_layout(
-                    xaxis_title='Specialization',
-                    yaxis_title='College'
-                )
-                st.plotly_chart(fig9, use_container_width=True)
-            else:
-                st.info("No data available for college-specialization analysis")
-        except Exception as e:
-            st.info("No data available for college-specialization analysis")
-
-        # College Performance Analysis
-        st.write("### College Performance")
-        try:
-            # Fix value_counts issues by using pandas functions explicitly
-            college_counts = pd.Series(filtered_df['College']).value_counts()
-            
-            if not college_counts.empty:
-                fig10 = px.bar(x=college_counts.index, y=college_counts.values,
-                               title='Enquiries by College')
-                fig10.update_layout(xaxis_title='College', yaxis_title='Number of Enquiries')
-                st.plotly_chart(fig10, use_container_width=True)
-            else:
-                st.info("No data available for college performance analysis")
-        except Exception as e:
-            st.info("No data available for college performance analysis")
-        
-        # Enhanced Analysis Section
-        st.subheader("Enhanced Analysis")
-        
-        # Additional Charts and Analysis Parameters
-        enh_col1, enh_col2, enh_col3 = st.columns(3)
-        
-        with enh_col1:
-            # Enquiry Type Analysis
-            if 'Enquiry Type' in filtered_df.columns:
-                try:
-                    enquiry_type_counts = pd.Series(filtered_df['Enquiry Type']).value_counts()
-                    if not enquiry_type_counts.empty:
-                        fig_enq_type = px.pie(values=enquiry_type_counts.values, names=enquiry_type_counts.index,
+                    fig_enq_type = px.pie(values=enquiry_type_counts.values, names=enquiry_type_counts.index,
                                              title='Enquiry Type Distribution')
-                        st.plotly_chart(fig_enq_type, use_container_width=True)
-                except Exception as e:
-                    st.info("Unable to create enquiry type analysis")
+                    st.plotly_chart(fig_enq_type, use_container_width=True)
+            except Exception as e:
+                st.info("Unable to create enquiry type analysis")
         
         with enh_col2:
             # Gender Distribution Analysis
@@ -706,16 +711,17 @@ def render_enquiry_dashboard():
             <p>Run the master dashboard to access all modules from a single interface.</p>
         </div>
         """, unsafe_allow_html=True)
-    else:
-        st.info("Please upload a CSV file to begin analysis.")
-        st.markdown("""
-        <div class="info-box">
-            <h4>💡 Tips for Using This Dashboard:</h4>
-            <ul>
-                <li>Upload a CSV file containing enquiry data</li>
-                <li>Ensure your data includes columns like: Enquiry No., Enquiry Date, College, Specialization, Enquiry Type, Allotment Status, Gender</li>
-                <li>Use the filters in the sidebar to analyze specific segments</li>
-                <li>View visualizations to understand enquiry patterns and trends</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+else:
+    st.info("Please upload a CSV file to begin analysis.")
+    st.markdown("""
+    <div class="info-box">
+        <h4>💡 Tips for Using This Dashboard:</h4>
+        <ul>
+            <li>Upload a CSV file containing enquiry data</li>
+            <li>Ensure your data includes columns like: Enquiry No., Enquiry Date, College, Specialization, Enquiry Type, Allotment Status, Gender</li>
+            <li>Use the filters in the sidebar to analyze specific segments</li>
+            <li>View visualizations to understand enquiry patterns and trends</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
