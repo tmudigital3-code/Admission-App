@@ -177,21 +177,8 @@ def render_admission_dashboard(uploaded_file=None):
         df = load_data(uploaded_file)
         st.sidebar.success(f"✅ File uploaded: {uploaded_file.name}")
     else:
-        # File Upload Section (only show if no file was passed from master)
-        st.sidebar.header("📁 Data Upload")
-        uploaded_file_local = st.sidebar.file_uploader(
-            "Admission Data Upload",
-            type=['csv'],
-            accept_multiple_files=False,
-            help="Upload your admission data CSV file"
-        )
-
-        if uploaded_file_local is not None:
-            st.sidebar.success(f"✅ File uploaded: {uploaded_file_local.name}")
-            df = load_data(uploaded_file_local)
-        else:
-            st.sidebar.info("Using default data file")
-            df = load_data()
+        # If no file was uploaded from master dashboard, load default data silently
+        df = load_data()
 
     # Check if data is loaded
     if df is None:

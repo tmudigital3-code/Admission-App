@@ -129,12 +129,19 @@ def render_enquiry_dashboard(uploaded_file=None):
     </div>
     """, unsafe_allow_html=True)
 
-    # Function to load data from uploaded file
+    # Function to load data from uploaded file or default data
     @st.cache_data
     def load_data_from_file(uploaded_file):
         try:
-            # Read the uploaded CSV file
-            df = pd.read_csv(uploaded_file)
+            # If no file was uploaded, try to load default data
+            if uploaded_file is None:
+                try:
+                    df = pd.read_csv('enquiry_data.csv')
+                except FileNotFoundError:
+                    return pd.DataFrame()  # Return empty DataFrame if no default file
+            else:
+                # Read the uploaded CSV file
+                df = pd.read_csv(uploaded_file)
             
             # Remove duplicate entries (entries with same Enquiry No. and different times)
             df_unique = df.drop_duplicates(subset=['Enquiry No.'], keep='first')
@@ -207,19 +214,12 @@ def render_enquiry_dashboard(uploaded_file=None):
         df = load_data_from_file(uploaded_file)
         st.sidebar.success(f"✅ File uploaded: {uploaded_file.name}")
     else:
-        # File upload section
-        st.sidebar.markdown('<div class="sidebar-header">📁 Data Upload</div>', unsafe_allow_html=True)
-        uploaded_file_local = st.sidebar.file_uploader("Enquiry Data Upload", type="csv", accept_multiple_files=False, key="enquiry_uploader",
-            help="Upload CSV file containing enquiry data (Must include columns: Enquiry No., Enquiry Date, College, Specialization, Enquiry Type, Allotment Status, Gender)")
-
-        st.sidebar.markdown('<div class="sidebar-header">🔍 Filters</div>', unsafe_allow_html=True)
-        
-        # Load the data
-        df = load_data_from_file(uploaded_file_local)
+        # If no file was uploaded from master dashboard, load default data silently
+        df = load_data_from_file(None)
     
     # Check if we have valid data
-    if df.empty:
-        st.error("No valid data found after processing. Please check your CSV file format.")
+    if df is None or df.empty:
+        st.info("Please upload a CSV file to begin analysis.")
         st.markdown("""
         <div class="info-box">
             <h4>💡 Tips for Using This Dashboard:</h4>
@@ -711,17 +711,4 @@ def render_enquiry_dashboard(uploaded_file=None):
             <p>Run the master dashboard to access all modules from a single interface.</p>
         </div>
         """, unsafe_allow_html=True)
-else:
-    st.info("Please upload a CSV file to begin analysis.")
-    st.markdown("""
-    <div class="info-box">
-        <h4>💡 Tips for Using This Dashboard:</h4>
-        <ul>
-            <li>Upload a CSV file containing enquiry data</li>
-            <li>Ensure your data includes columns like: Enquiry No., Enquiry Date, College, Specialization, Enquiry Type, Allotment Status, Gender</li>
-            <li>Use the filters in the sidebar to analyze specific segments</li>
-            <li>View visualizations to understand enquiry patterns and trends</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
 
